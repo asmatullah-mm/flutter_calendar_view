@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../components/_internal_components.dart';
 import '../event_arrangers/event_arrangers.dart';
 import '../event_controller.dart';
+import '../extensions.dart';
 import '../modals.dart';
 import '../painters.dart';
 import '../typedefs.dart';
@@ -41,11 +42,17 @@ class InternalDayViewPage<T> extends StatelessWidget {
   /// Settings for live time indicator.
   final HourIndicatorSettings liveTimeIndicatorSettings;
 
+  /// Builder for live time indicator.
+  final Widget Function(DateTime date)? liveTimeBuilder;
+
   /// Height occupied by one minute of time span.
   final double heightPerMinute;
 
   /// Width of time line.
   final double timeLineWidth;
+
+  /// Background color of current day.
+  final Color? currentDayBackgroundColor;
 
   /// Offset for time line widgets.
   final double timeLineOffset;
@@ -80,6 +87,8 @@ class InternalDayViewPage<T> extends StatelessWidget {
     required this.hourIndicatorSettings,
     required this.showLiveLine,
     required this.liveTimeIndicatorSettings,
+    this.liveTimeBuilder,
+    this.currentDayBackgroundColor,
     required this.heightPerMinute,
     required this.timeLineWidth,
     required this.timeLineOffset,
@@ -98,6 +107,23 @@ class InternalDayViewPage<T> extends StatelessWidget {
       width: width,
       child: Stack(
         children: [
+          if (currentDayBackgroundColor != null &&
+              date.compareWithoutTime(DateTime.now()))
+            Transform.translate(
+              offset: Offset(
+                timeLineWidth +
+                    hourIndicatorSettings.offset +
+                    verticalLineOffset,
+                0,
+              ),
+              child: SizedBox(
+                width: width,
+                height: height,
+                child: ColoredBox(
+                  color: currentDayBackgroundColor!,
+                ),
+              ),
+            ),
           CustomPaint(
             size: Size(width, height),
             painter: HourLinePainter(
@@ -109,9 +135,18 @@ class InternalDayViewPage<T> extends StatelessWidget {
               showVerticalLine: showVerticalLine,
             ),
           ),
+          TimeLine(
+            height: height,
+            hourHeight: hourHeight,
+            timeLineBuilder: timeLineBuilder,
+            timeLineOffset: timeLineOffset,
+            timeLineWidth: timeLineWidth,
+            key: ValueKey(heightPerMinute),
+          ),
           if (showLiveLine && liveTimeIndicatorSettings.height > 0)
             LiveTimeIndicator(
               liveTimeIndicatorSettings: liveTimeIndicatorSettings,
+              liveTimeBuilder: liveTimeBuilder,
               width: width,
               height: height,
               heightPerMinute: heightPerMinute,
@@ -139,14 +174,6 @@ class InternalDayViewPage<T> extends StatelessWidget {
                   hourIndicatorSettings.offset -
                   verticalLineOffset,
             ),
-          ),
-          TimeLine(
-            height: height,
-            hourHeight: hourHeight,
-            timeLineBuilder: timeLineBuilder,
-            timeLineOffset: timeLineOffset,
-            timeLineWidth: timeLineWidth,
-            key: ValueKey(heightPerMinute),
           ),
         ],
       ),

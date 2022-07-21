@@ -30,6 +30,9 @@ class LiveTimeIndicator extends StatefulWidget {
   /// and height of indicator.
   final HourIndicatorSettings liveTimeIndicatorSettings;
 
+  /// Builder for live time indicator.
+  final Widget Function(DateTime date)? liveTimeBuilder;
+
   /// Defines height occupied by one minute.
   final double heightPerMinute;
 
@@ -39,6 +42,7 @@ class LiveTimeIndicator extends StatefulWidget {
       required this.width,
       required this.height,
       required this.timeLineWidth,
+      this.liveTimeBuilder,
       required this.liveTimeIndicatorSettings,
       required this.heightPerMinute})
       : super(key: key);
@@ -79,9 +83,10 @@ class _LiveTimeIndicatorState extends State<LiveTimeIndicator> {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
+    dynamic childWidget = CustomPaint(
       size: Size(widget.width, widget.height),
       painter: CurrentTimeLinePainter(
+        showBullet: widget.liveTimeBuilder == null,
         color: widget.liveTimeIndicatorSettings.color,
         height: widget.liveTimeIndicatorSettings.height,
         offset: Offset(
@@ -90,6 +95,15 @@ class _LiveTimeIndicatorState extends State<LiveTimeIndicator> {
         ),
       ),
     );
+    if (widget.liveTimeBuilder != null) {
+      childWidget = Stack(
+        children: [
+          widget.liveTimeBuilder!(_currentDate),
+          childWidget,
+        ],
+      );
+    }
+    return childWidget;
   }
 }
 

@@ -63,6 +63,9 @@ class WeekView<T> extends StatefulWidget {
   /// Settings for live time indicator settings.
   final HourIndicatorSettings? liveTimeIndicatorSettings;
 
+  /// Builder for live time indicator.
+  final Widget Function(DateTime date)? liveTimeBuilder;
+
   /// duration for page transition while changing the week.
   final Duration pageTransitionDuration;
 
@@ -72,6 +75,9 @@ class WeekView<T> extends StatefulWidget {
   /// Controller for Week view thia will refresh view when user adds or removes
   /// event from controller.
   final EventController<T>? controller;
+
+  /// A callback function which returns PageController when created.
+  final Function(PageController)? onPageCreated;
 
   /// Defines height occupied by one minute of time span. This parameter will
   /// be used to calculate total height of Week view.
@@ -89,11 +95,28 @@ class WeekView<T> extends StatefulWidget {
   /// Width of week view. If null provided device width will be considered.
   final double? width;
 
+  /// Defines offset of vertical line from hour line starts.
+  final double verticalLineOffset;
+
   /// Height of week day title,
   final double weekTitleHeight;
 
   /// Builder to build week day.
   final DateWidgetBuilder? weekDayBuilder;
+
+  /// Leading widget for week day title.
+  final Widget? weekDayLeading;
+
+  /// Leading widget for week day title.
+  final double? weekDayEndPadding;
+
+  /// Divider widget for week day title.
+  final Widget? weekDayDivider;
+
+  /// Background color of current day..
+  ///
+  /// if null provided then transparent color will be considered.
+  final Color? currentDayBgColor;
 
   /// Background color of week view page.
   final Color backgroundColor;
@@ -132,6 +155,7 @@ class WeekView<T> extends StatefulWidget {
   const WeekView({
     Key? key,
     this.controller,
+    this.onPageCreated,
     this.eventTileBuilder,
     this.pageTransitionDuration = const Duration(milliseconds: 300),
     this.pageTransitionCurve = Curves.ease,
@@ -146,12 +170,18 @@ class WeekView<T> extends StatefulWidget {
     this.timeLineBuilder,
     this.timeLineWidth,
     this.liveTimeIndicatorSettings,
+    this.liveTimeBuilder,
     this.onPageChange,
     this.weekPageHeaderBuilder,
     this.eventArranger,
+    this.verticalLineOffset = 0,
     this.weekTitleHeight = 50,
     this.weekDayBuilder,
+    this.weekDayLeading,
+    this.weekDayEndPadding,
+    this.weekDayDivider,
     this.backgroundColor = Colors.white,
+    this.currentDayBgColor,
     this.scrollOffset = 0.0,
     this.onEventTap,
     this.onDateLongPress,
@@ -188,6 +218,9 @@ class WeekViewState<T> extends State<WeekView<T>> {
   late EventTileBuilder<T> _eventTileBuilder;
   late WeekPageHeaderBuilder _weekHeaderBuilder;
   late DateWidgetBuilder _weekDayBuilder;
+  late Widget _weekDayLeading;
+  late double _weekDayEndPadding;
+  late Widget _weekDayDivider;
 
   late double _weekTitleWidth;
   late final int _totalDaysInWeek;
@@ -208,7 +241,9 @@ class WeekViewState<T> extends State<WeekView<T>> {
     _weekDays = widget.weekDays.toSet().toList();
 
     if (!widget.showWeekends) {
-      _weekDays..remove(WeekDays.saturday)..remove(WeekDays.sunday);
+      _weekDays
+        ..remove(WeekDays.saturday)
+        ..remove(WeekDays.sunday);
     }
 
     assert(
@@ -251,12 +286,16 @@ class WeekViewState<T> extends State<WeekView<T>> {
     _scrollController =
         ScrollController(initialScrollOffset: widget.scrollOffset);
     _pageController = PageController(initialPage: _currentIndex);
+    if (widget.onPageCreated != null) widget.onPageCreated!(_pageController);
     _eventArranger = widget.eventArranger ?? SideEventArranger<T>();
     _timeLineBuilder = widget.timeLineBuilder ?? _defaultTimeLineBuilder;
     _eventTileBuilder = widget.eventTileBuilder ?? _defaultEventTileBuilder;
     _weekHeaderBuilder =
         widget.weekPageHeaderBuilder ?? _defaultWeekPageHeaderBuilder;
     _weekDayBuilder = widget.weekDayBuilder ?? _defaultWeekDayBuilder;
+    _weekDayLeading = widget.weekDayLeading ?? SizedBox.shrink();
+    _weekDayEndPadding = widget.weekDayEndPadding ?? 0;
+    _weekDayDivider = widget.weekDayDivider ?? SizedBox.shrink();
   }
 
   @override
@@ -284,7 +323,7 @@ class WeekViewState<T> extends State<WeekView<T>> {
         HourIndicatorSettings(
           color: Constants.defaultLiveTimeIndicatorColor,
           height: widget.heightPerMinute,
-          offset: 5,
+          offset: 5 + widget.verticalLineOffset,
         );
 
     assert(_liveTimeIndicatorSettings.height < _hourHeight,
@@ -300,9 +339,12 @@ class WeekViewState<T> extends State<WeekView<T>> {
     assert(_hourIndicatorSettings.height < _hourHeight,
         "hourIndicator height must be less than minuteHeight * 60");
 
-    _weekTitleWidth =
-        (_width - _timeLineWidth - _hourIndicatorSettings.offset) /
-            _totalDaysInWeek;
+    _weekTitleWidth = (_width -
+            _timeLineWidth -
+            _hourIndicatorSettings.offset -
+            widget.verticalLineOffset -
+            _weekDayEndPadding) /
+        _totalDaysInWeek;
   }
 
   @override
@@ -347,7 +389,12 @@ class WeekViewState<T> extends State<WeekView<T>> {
                         weekTitleWidth: _weekTitleWidth,
                         weekTitleHeight: widget.weekTitleHeight,
                         weekDayBuilder: _weekDayBuilder,
+                        weekDayLeading: _weekDayLeading,
+                        weekDayEndPadding: _weekDayEndPadding,
+                        weekDayDivider: _weekDayDivider,
+                        currentDayBackgroundColor: widget.currentDayBgColor,
                         liveTimeIndicatorSettings: _liveTimeIndicatorSettings,
+                        liveTimeBuilder: widget.liveTimeBuilder,
                         timeLineBuilder: _timeLineBuilder,
                         onTileTap: widget.onEventTap,
                         onDateLongPress: widget.onDateLongPress,
@@ -359,7 +406,7 @@ class WeekViewState<T> extends State<WeekView<T>> {
                             _showLiveTimeIndicator(dates),
                         timeLineOffset: _timeLineOffset,
                         timeLineWidth: _timeLineWidth,
-                        verticalLineOffset: 0,
+                        verticalLineOffset: widget.verticalLineOffset,
                         showVerticalLine: true,
                         controller: _controller,
                         hourHeight: _hourHeight,

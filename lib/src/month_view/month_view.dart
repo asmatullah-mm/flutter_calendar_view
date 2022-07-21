@@ -90,6 +90,9 @@ class MonthView<T> extends StatefulWidget {
   /// [CalendarControllerProvider.controller].
   final EventController<T>? controller;
 
+  /// A callback function which returns PageController when created.
+  final Function(PageController)? onPageCreated;
+
   /// Defines width of default border
   ///
   /// Default value is 1
@@ -117,6 +120,7 @@ class MonthView<T> extends StatefulWidget {
     this.minMonth,
     this.maxMonth,
     this.controller,
+    this.onPageCreated,
     this.initialMonth,
     this.borderSize = 1,
     this.cellAspectRatio = 0.55,
@@ -204,6 +208,8 @@ class MonthViewState<T> extends State<MonthView<T>> {
     // Initialize page controller to control page actions.
     _pageController = PageController(initialPage: _currentIndex);
 
+    if (widget.onPageCreated != null) widget.onPageCreated!(_pageController);
+
     // Initialize cell builder. Assign default if widget.cellBuilder is null.
     _cellBuilder = widget.cellBuilder ?? _defaultCellBuilder;
 
@@ -282,23 +288,28 @@ class MonthViewState<T> extends State<MonthView<T>> {
                         ),
                       ),
                       Expanded(
-                        child: SingleChildScrollView(
-                          child: SizedBox(
-                            height: _height,
-                            width: _width,
-                            child: _MonthPageBuilder<T>(
-                              key: ValueKey(date.toIso8601String()),
-                              onCellTap: widget.onCellTap,
-                              onDateLongPress: widget.onDateLongPress,
-                              width: _width,
+                        child: ScrollConfiguration(
+                          behavior: const ScrollBehavior().copyWith(
+                            overscroll: false,
+                          ),
+                          child: SingleChildScrollView(
+                            child: SizedBox(
                               height: _height,
-                              controller: _controller,
-                              borderColor: widget.borderColor,
-                              borderSize: widget.borderSize,
-                              cellBuilder: _cellBuilder,
-                              cellRatio: widget.cellAspectRatio,
-                              date: date,
-                              showBorder: widget.showBorder,
+                              width: _width,
+                              child: _MonthPageBuilder<T>(
+                                key: ValueKey(date.toIso8601String()),
+                                onCellTap: widget.onCellTap,
+                                onDateLongPress: widget.onDateLongPress,
+                                width: _width,
+                                height: _height,
+                                controller: _controller,
+                                borderColor: widget.borderColor,
+                                borderSize: widget.borderSize,
+                                cellBuilder: _cellBuilder,
+                                cellRatio: widget.cellAspectRatio,
+                                date: date,
+                                showBorder: widget.showBorder,
+                              ),
                             ),
                           ),
                         ),

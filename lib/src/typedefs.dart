@@ -21,6 +21,10 @@ typedef EventTileBuilder<T> = Widget Function(
   DateTime endDuration,
 );
 
+typedef EventCellBuilder<T> = Widget Function(
+  CalendarEventData<T> event,
+);
+
 typedef WeekDayBuilder = Widget Function(
   int day,
 );

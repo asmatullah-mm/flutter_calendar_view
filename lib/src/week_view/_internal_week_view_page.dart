@@ -8,6 +8,7 @@ import '../components/_internal_components.dart';
 import '../enumerations.dart';
 import '../event_arrangers/event_arrangers.dart';
 import '../event_controller.dart';
+import '../extensions.dart';
 import '../modals.dart';
 import '../painters.dart';
 import '../typedefs.dart';
@@ -42,6 +43,9 @@ class InternalWeekViewPage<T> extends StatelessWidget {
   /// Settings for live time indicator.
   final HourIndicatorSettings liveTimeIndicatorSettings;
 
+  /// Builder for live time indicator.
+  final Widget Function(DateTime date)? liveTimeBuilder;
+
   ///  Height occupied by one minute time span.
   final double heightPerMinute;
 
@@ -65,6 +69,18 @@ class InternalWeekViewPage<T> extends StatelessWidget {
 
   /// Builder for week day title.
   final DateWidgetBuilder weekDayBuilder;
+
+  /// Padding for week day title end.
+  final double weekDayEndPadding;
+
+  /// Leading widget for week day title.
+  final Widget weekDayLeading;
+
+  /// Divider widget for week day title.
+  final Widget weekDayDivider;
+
+  /// Background color of current day.
+  final Color? currentDayBackgroundColor;
 
   /// Height of week title.
   final double weekTitleHeight;
@@ -92,6 +108,9 @@ class InternalWeekViewPage<T> extends StatelessWidget {
     required this.showVerticalLine,
     required this.weekTitleHeight,
     required this.weekDayBuilder,
+    required this.weekDayLeading,
+    required this.weekDayEndPadding,
+    required this.weekDayDivider,
     required this.width,
     required this.dates,
     required this.eventTileBuilder,
@@ -100,6 +119,8 @@ class InternalWeekViewPage<T> extends StatelessWidget {
     required this.hourIndicatorSettings,
     required this.showLiveLine,
     required this.liveTimeIndicatorSettings,
+    this.currentDayBackgroundColor,
+    this.liveTimeBuilder,
     required this.heightPerMinute,
     required this.timeLineWidth,
     required this.timeLineOffset,
@@ -130,7 +151,10 @@ class InternalWeekViewPage<T> extends StatelessWidget {
               children: [
                 SizedBox(
                   height: weekTitleHeight,
-                  width: timeLineWidth,
+                  width: timeLineWidth +
+                      hourIndicatorSettings.offset +
+                      verticalLineOffset,
+                  child: weekDayLeading,
                 ),
                 ...List.generate(
                   filteredDates.length,
@@ -141,93 +165,130 @@ class InternalWeekViewPage<T> extends StatelessWidget {
                       filteredDates[index],
                     ),
                   ),
-                )
+                ),
+                SizedBox(
+                  width: weekDayEndPadding,
+                ),
               ],
             ),
           ),
+          weekDayDivider,
           Expanded(
-            child: SingleChildScrollView(
-              controller: scrollController,
-              child: SizedBox(
-                height: height,
-                width: width,
-                child: Stack(
-                  children: [
-                    CustomPaint(
-                      size: Size(width, height),
-                      painter: HourLinePainter(
-                        lineColor: hourIndicatorSettings.color,
-                        lineHeight: hourIndicatorSettings.height,
-                        offset: timeLineWidth + hourIndicatorSettings.offset,
-                        minuteHeight: heightPerMinute,
-                        verticalLineOffset: verticalLineOffset,
-                        showVerticalLine: showVerticalLine,
-                      ),
-                    ),
-                    if (showLiveLine && liveTimeIndicatorSettings.height > 0)
-                      LiveTimeIndicator(
-                        liveTimeIndicatorSettings: liveTimeIndicatorSettings,
-                        width: width,
-                        height: height,
-                        heightPerMinute: heightPerMinute,
-                        timeLineWidth: timeLineWidth,
-                      ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: SizedBox(
-                        width: weekTitleWidth * filteredDates.length,
-                        height: height,
-                        child: Row(
-                          children: [
-                            ...List.generate(
-                              filteredDates.length,
-                              (index) => Container(
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    right: BorderSide(
-                                      color: hourIndicatorSettings.color,
-                                      width: hourIndicatorSettings.height,
-                                    ),
-                                  ),
-                                ),
-                                height: height,
-                                width: weekTitleWidth,
-                                child: Stack(
-                                  children: [
-                                    PressDetector(
-                                      width: weekTitleWidth,
-                                      height: height,
-                                      hourHeight: hourHeight,
-                                      date: dates[index],
-                                      onDateLongPress: onDateLongPress,
-                                    ),
-                                    EventGenerator<T>(
-                                      height: height,
-                                      date: filteredDates[index],
-                                      onTileTap: onTileTap,
-                                      width: weekTitleWidth,
-                                      eventArranger: eventArranger,
-                                      eventTileBuilder: eventTileBuilder,
-                                      events: controller
-                                          .getEventsOnDay(filteredDates[index]),
-                                      heightPerMinute: heightPerMinute,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          ],
+            child: ScrollConfiguration(
+              behavior: const ScrollBehavior().copyWith(
+                overscroll: false,
+              ),
+              child: SingleChildScrollView(
+                controller: scrollController,
+                child: SizedBox(
+                  height: height,
+                  width: width,
+                  child: Stack(
+                    children: [
+                      if (currentDayBackgroundColor != null &&
+                          dates.any(
+                            (element) => element.compareWithoutTime(
+                              DateTime.now(),
+                            ),
+                          ))
+                        Transform.translate(
+                          offset: Offset(
+                            timeLineWidth +
+                                hourIndicatorSettings.offset +
+                                verticalLineOffset - weekDayEndPadding + 1 +
+                                (weekTitleWidth *
+                                    dates.indexWhere(
+                                      (element) => element
+                                          .compareWithoutTime(DateTime.now()),
+                                    )),
+                            0,
+                          ),
+                          child: SizedBox(
+                            width: weekTitleWidth,
+                            height: height,
+                            child: ColoredBox(
+                              color: currentDayBackgroundColor!,
+                            ),
+                          ),
+                        ),
+                      CustomPaint(
+                        size: Size(width, height),
+                        painter: HourLinePainter(
+                          lineColor: hourIndicatorSettings.color,
+                          lineHeight: hourIndicatorSettings.height,
+                          offset: timeLineWidth + hourIndicatorSettings.offset,
+                          minuteHeight: heightPerMinute,
+                          verticalLineOffset: verticalLineOffset,
+                          showVerticalLine: showVerticalLine,
                         ),
                       ),
-                    ),
-                    TimeLine(
-                      timeLineWidth: timeLineWidth,
-                      hourHeight: hourHeight,
-                      height: height,
-                      timeLineOffset: timeLineOffset,
-                      timeLineBuilder: timeLineBuilder,
-                    ),
-                  ],
+                      TimeLine(
+                        timeLineWidth: timeLineWidth,
+                        hourHeight: hourHeight,
+                        height: height,
+                        timeLineOffset: timeLineOffset,
+                        timeLineBuilder: timeLineBuilder,
+                      ),
+                      if (showLiveLine && liveTimeIndicatorSettings.height > 0)
+                        LiveTimeIndicator(
+                          liveTimeIndicatorSettings: liveTimeIndicatorSettings,
+                          liveTimeBuilder: liveTimeBuilder,
+                          width: width,
+                          height: height,
+                          heightPerMinute: heightPerMinute,
+                          timeLineWidth: timeLineWidth,
+                        ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: SizedBox(
+                          width: weekTitleWidth * filteredDates.length +
+                              verticalLineOffset,
+                          height: height,
+                          child: Row(
+                            children: [
+                              ...List.generate(
+                                filteredDates.length,
+                                (index) => Container(
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      right: BorderSide(
+                                        color: hourIndicatorSettings.color,
+                                        width: hourIndicatorSettings.height,
+                                      ),
+                                    ),
+                                  ),
+                                  height: height,
+                                  width: weekTitleWidth,
+                                  child: Stack(
+                                    children: [
+                                      PressDetector(
+                                        width: weekTitleWidth,
+                                        height: height,
+                                        hourHeight: hourHeight,
+                                        date: dates[index],
+                                        onDateLongPress: onDateLongPress,
+                                      ),
+                                      EventGenerator<T>(
+                                        height: height,
+                                        date: filteredDates[index],
+                                        onTileTap: onTileTap,
+                                        width: weekTitleWidth,
+                                        eventArranger: eventArranger,
+                                        eventTileBuilder: eventTileBuilder,
+                                        events: controller.getEventsOnDay(
+                                            filteredDates[index]),
+                                        heightPerMinute: heightPerMinute,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

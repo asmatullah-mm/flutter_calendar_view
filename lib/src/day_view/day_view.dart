@@ -64,6 +64,9 @@ class DayView<T> extends StatefulWidget {
   /// Pass [HourIndicatorSettings.none] to remove live time indicator.
   final HourIndicatorSettings? liveTimeIndicatorSettings;
 
+  /// Builder for live time indicator.
+  final Widget Function(DateTime date)? liveTimeBuilder;
+
   /// Page transition duration used when user try to change page using
   /// [DayViewState.nextPage] or [DayViewState.previousPage]
   final Duration pageTransitionDuration;
@@ -78,6 +81,9 @@ class DayView<T> extends StatefulWidget {
   /// This controller will store all the events. And returns events
   /// for particular day.
   final EventController<T>? controller;
+
+  /// A callback function which returns PageController when created.
+  final Function(PageController)? onPageCreated;
 
   /// Defines height occupied by one minute of interval.
   /// This will be used to calculate total height of day view.
@@ -111,6 +117,11 @@ class DayView<T> extends StatefulWidget {
   /// if null provided then device width will be considered.
   final double? width;
 
+  /// Background color of current day..
+  ///
+  /// if null provided then transparent color will be considered.
+  final Color? currentDayBgColor;
+
   /// If true this will display vertical line in day view.
   final bool showVerticalLine;
 
@@ -134,10 +145,12 @@ class DayView<T> extends StatefulWidget {
     Key? key,
     this.eventTileBuilder,
     this.controller,
+    this.onPageCreated,
     this.showVerticalLine = true,
     this.pageTransitionDuration = const Duration(milliseconds: 300),
     this.pageTransitionCurve = Curves.ease,
     this.width,
+    this.currentDayBgColor,
     this.minDay,
     this.maxDay,
     this.initialDay,
@@ -148,6 +161,7 @@ class DayView<T> extends StatefulWidget {
     this.timeLineOffset = 0,
     this.showLiveTimeLineInAllDays = false,
     this.liveTimeIndicatorSettings,
+    this.liveTimeBuilder,
     this.onPageChange,
     this.dayTitleBuilder,
     this.eventArranger,
@@ -176,6 +190,7 @@ class DayViewState<T> extends State<DayView<T>> {
   late DateTime _initialDay;
   late int _totalDays;
   late int _currentIndex;
+  late Color _currentDayBgColor;
 
   late EventArranger<T> _eventArranger;
 
@@ -225,10 +240,12 @@ class DayViewState<T> extends State<DayView<T>> {
     _currentIndex = _currentDate.getDayDifference(_minDate);
     _hourHeight = widget.heightPerMinute * 60;
     _height = _hourHeight * Constants.hoursADay;
+    _currentDayBgColor = widget.currentDayBgColor ?? Colors.transparent;
     _timeLineOffset = widget.timeLineOffset;
     _scrollController =
         ScrollController(initialScrollOffset: widget.scrollOffset);
     _pageController = PageController(initialPage: _currentIndex);
+    if (widget.onPageCreated != null) widget.onPageCreated!(_pageController);
     _eventArranger = widget.eventArranger ?? SideEventArranger<T>();
     _timeLineBuilder = widget.timeLineBuilder ?? _defaultTimeLineBuilder;
     _eventTileBuilder = widget.eventTileBuilder ?? _defaultEventTileBuilder;
@@ -270,7 +287,7 @@ class DayViewState<T> extends State<DayView<T>> {
         HourIndicatorSettings(
           height: widget.heightPerMinute,
           color: Constants.defaultBorderColor,
-          offset: 5,
+          offset: 5 + widget.verticalLineOffset,
         );
 
     assert(_hourIndicatorSettings.height < _hourHeight,
@@ -299,42 +316,50 @@ class DayViewState<T> extends State<DayView<T>> {
             children: [
               _dayTitleBuilder(_currentDate),
               Expanded(
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  child: SizedBox(
-                    height: _height,
-                    child: PageView.builder(
-                      itemCount: _totalDays,
-                      controller: _pageController,
-                      onPageChanged: _onPageChange,
-                      itemBuilder: (_, index) {
-                        final date = DateTime(_minDate.year, _minDate.month,
-                            _minDate.day + index);
+                child: ScrollConfiguration(
+                  behavior: const ScrollBehavior().copyWith(
+                    overscroll: false,
+                  ),
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    child: SizedBox(
+                      height: _height,
+                      child: PageView.builder(
+                        itemCount: _totalDays,
+                        controller: _pageController,
+                        onPageChanged: _onPageChange,
+                        itemBuilder: (_, index) {
+                          final date = DateTime(_minDate.year, _minDate.month,
+                              _minDate.day + index);
 
-                        return InternalDayViewPage<T>(
-                          key: ValueKey(
-                              _hourHeight.toString() + date.toString()),
-                          width: _width,
-                          liveTimeIndicatorSettings: _liveTimeIndicatorSettings,
-                          timeLineBuilder: _timeLineBuilder,
-                          eventTileBuilder: _eventTileBuilder,
-                          heightPerMinute: widget.heightPerMinute,
-                          hourIndicatorSettings: _hourIndicatorSettings,
-                          date: date,
-                          onTileTap: widget.onEventTap,
-                          onDateLongPress: widget.onDateLongPress,
-                          showLiveLine: widget.showLiveTimeLineInAllDays ||
-                              date.compareWithoutTime(DateTime.now()),
-                          timeLineOffset: _timeLineOffset,
-                          timeLineWidth: _timeLineWidth,
-                          verticalLineOffset: widget.verticalLineOffset,
-                          showVerticalLine: widget.showVerticalLine,
-                          height: _height,
-                          controller: _controller,
-                          hourHeight: _hourHeight,
-                          eventArranger: _eventArranger,
-                        );
-                      },
+                          return InternalDayViewPage<T>(
+                            key: ValueKey(
+                                _hourHeight.toString() + date.toString()),
+                            width: _width,
+                            liveTimeIndicatorSettings:
+                                _liveTimeIndicatorSettings,
+                            liveTimeBuilder: widget.liveTimeBuilder,
+                            timeLineBuilder: _timeLineBuilder,
+                            eventTileBuilder: _eventTileBuilder,
+                            heightPerMinute: widget.heightPerMinute,
+                            hourIndicatorSettings: _hourIndicatorSettings,
+                            date: date,
+                            onTileTap: widget.onEventTap,
+                            onDateLongPress: widget.onDateLongPress,
+                            showLiveLine: widget.showLiveTimeLineInAllDays ||
+                                date.compareWithoutTime(DateTime.now()),
+                            currentDayBackgroundColor: _currentDayBgColor,
+                            timeLineOffset: _timeLineOffset,
+                            timeLineWidth: _timeLineWidth,
+                            verticalLineOffset: widget.verticalLineOffset,
+                            showVerticalLine: widget.showVerticalLine,
+                            height: _height,
+                            controller: _controller,
+                            hourHeight: _hourHeight,
+                            eventArranger: _eventArranger,
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
